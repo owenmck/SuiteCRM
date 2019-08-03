@@ -5,14 +5,6 @@
 cache/*
 upload/*
 !upload/index.html
-# Ignore some files and directories from the custom directory.
-custom/
-custom/history/*
-custom/blowfish/*
-custom/modulebuilder/*
-custom/working/*
-custom/modules/*/Ext/
-custom/modules/unified_search_modules_display.php
 # Ignore AOD indexes
 modules/AOD_Index/Index/*
 install/status.json
@@ -76,10 +68,6 @@ Desktop.ini
 lang_cmp.php
 .kdev4/
 SuiteCRM.kdev4
-
-#Ignore composer vendor folder
-vendor/
-public/
 
 .php_cs.cache
 
