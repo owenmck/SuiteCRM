@@ -14,7 +14,12 @@ var $hashInput = $('#abn_details_hash_c');
         $abnInput.parent().find('.abn-validation-message').remove();
         $abnInput.parent().append($messageSpace);
 
-        $hashInput.prop('disabled', true);
+        /* usual theme override does not seem to work */
+        $hashInput.prop('readonly', true);
+        $hashInput.addClass('readonly');
+        $hashInput.css("background", "#cccccc");
+        $hashInput.css("border", "1px solid #e2e7eb");
+        $hashInput.css("color", "#4e4f51");
 
         $button.on('click', function () {
             abnLookup($messageSpace);

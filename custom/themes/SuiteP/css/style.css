@@ -1,0 +1,6 @@
+/* SuiteCRM will append these styles to the theme's css (i.e. override via cascade) */
+input[type="text"].readonly {
+    background: #888888;
+    border: 1px solid #e2e7eb;
+    color: #4e4f51;
+}
