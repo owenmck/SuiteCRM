@@ -1,3 +1,4 @@
+//custom/modules/Accounts/js/editView.js
 var abnLookupGUID = 'eb7e518b-6a8a-4db5-a4bd-508a169ddc42';
 var $abnInput = $('#abn_c');
 var $hashInput = $('#abn_details_hash_c');
@@ -96,49 +97,47 @@ function setFieldValue(fieldId, value) {
 
 function abnLookup($messageSpace) {
     var abn = getFieldValue('abn_c');
-    var guid = abnLookupGUID;
-    var jasonScript;
-
-    var request = 'https://www.abr.business.gov.au/json/AbnDetails.aspx?callback=abnCallback&abn=' + abn + '&guid=' + guid;
-    //var request = 'https://abr.business.gov.au/abrxmlsearch/AbrXmlSearch.asmx/SearchByABNv201408?searchString=35450124968&includeHistoricalDetails=N&authenticationGuid=eb7e518b-6a8a-4db5-a4bd-508a169ddc42';
-    try {
-        abnInitialise($messageSpace);
-        jasonScript = new jsonRequest(request);
-        console.log(jasonScript);
-        jasonScript.buildScriptTag();
-        jasonScript.addScriptTag();
-    }
-    catch (exception) {
-        alert("Shez ded Jim");
-    }
+    // var guid = abnLookupGUID;
+    // var jasonScript;
+    abnInitialise($messageSpace);
+    jQuery.ajax(
+        {
+            url: "index.php?entryPoint=abr",
+            method: "POST",
+            dataType: 'json',
+            data: {"abnValue": abn},
+            error: function (XHR, AjaxStatus, theMessage) {
+                console.log("ajax error: " + theMessage);
+            },
+            statusCode: {
+                403: function (XHR, AjaxStatus, theMessage) {
+                    console.log("403 (verboten): " + theMessage);
+                },
+                404: function (XHR, AjaxStatus, theMessage) {
+                    console.log("404 (lost!): " + theMessage);
+                }
+            },
+            success: function (data) {
+                console.log(data);
+                abnCallback(data);
+            }
+        }
+    );
 }
-
-String.prototype.hashCode = function() {
-    var hash = 0, i, chr;
-    if (this.length === 0) return hash;
-    for (i = 0; i < this.length; i++) {
-        chr   = this.charCodeAt(i);
-        hash  = ((hash << 5) - hash) + chr;
-        hash |= 0; // Convert to 32bit integer
-    }
-    return hash;
-};
-
 
 /*------------------------------------------------------------------
 Call back function
 ------------------------------------------------------------------ */
-function abnCallback (abnData) {
-    console.log("Response from ABR: ");
-    console.log(abnData);
-
-    if (abnData.Message.length == 0) {
-        var abnDetailsString = JSON.stringify(abnData);
-        console.log("Concatenated: " + abnDetailsString);
-        var hashStr = abnDetailsString.hashCode();
-        setFieldValue('abn_details_hash_c', hashStr);
-        console.log("hashed: " + hashStr);
-        document.getElementById('abn-validation-message').innerHTML = "Validated (details in console!).<br>ABR data has been unchanged since " + abnData.AddressDate;
+function abnCallback (abnData)
+{
+    if (typeof abnData.Message === 'undefined' || abnData.Message.length == 0) {
+        setFieldValue('abn_details_hash_c', abnData.hash);
+        document.getElementById('abn-validation-message').innerHTML =
+            "Validated (details in console!).<br>" +
+            "ABR data has been unchanged since " + abnData.AddressDate + "<br>" +
+            "​AbnStatus: "       + abnData.AbnStatus + "<br>" +
+            "AddressDate: "     + abnData.AddressDate + "<br>" +
+            "AddressPostcode: " + abnData.AddressPostcode;
     } else {
         document.getElementById('abn-validation-message').innerHTML = "Not valid, or changed at ABR since last validation. Please try again.";
         setFieldValue('abn_details_hash_c', '');
