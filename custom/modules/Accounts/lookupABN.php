@@ -4,7 +4,7 @@
  * "An Australian Business Number (ABN) is a unique 11 digit number that identifies your business
  *  to the government and community."  - [retrieved 20190807]
  *
- * This script is intended for use as a target for a POST jQuery.ajax() call which expects a JSON response.
+ * This script is intended for use as the target of a POST jQuery.ajax() call which expects a JSON response.
  * Its task is, 'given an ABN string in a $_POST array, echo a JSON-encoded string of the ABR record for that business'.
  */
 
@@ -12,38 +12,43 @@ if (!defined('sugarEntry') || !sugarEntry) {
     die('Not A Valid Entry Point');
 }
 
+require "custom/modules/Accounts/ABN_LookupService.php";
 const ABN_STRING_LENGTH = 11;
-$abn_record = "";
-$array_of_returned_stuff=[];
+const INVALID_SEARCH    = "No data found.  Note that an ABN is a unique 11 digit number.";
+$abnJSON = "";
+$preparedObject = new stdClass();
 
-//validate the incoming POSTED parameters: expect only 1 param and it only contains 11 digits [+ spaces].  Else fail.
-if ($_POST && array_key_exists('abnValue', $_POST) && count($_POST) == 1) {
-    $abn_sans_space = preg_replace('/\s+/', '', $_POST['abnValue']);
+//validate the incoming POST: expect exactly 1 array element, named 'abnValue'. Else fail.
+$isValidPOST = $_POST && array_key_exists('abnValue', $_POST) && count($_POST) == 1;
 
-    if ( ctype_digit($abn_sans_space) && strlen($abn_sans_space) == ABN_STRING_LENGTH) {
+if ($isValidPOST) {
+    $abn = preg_replace('/\s+/', '', $_POST['abnValue']);
+
+    //validate the ABN obtained from $_POST: expect exactly 11 digits [ + spaces] only. Else fail.
+    $isValidABN = ctype_digit($abn) && strlen($abn) == ABN_STRING_LENGTH;
+
+    if ($isValidABN) {
+
         //get abn_record from ABR via SOAP call
+        try {
+            $bureaucrat = new ABN_Lookup();
+            $x = $bureaucrat->searchByAbn($abn);
+            $GLOBALS['log']->debug("\n\n======================================SOAP ABN SEARCH results ===================== \n\n".print_r ($x, true));
+            $preparedObject = $bureaucrat->prepareToShow();
+        } catch (Exception $e) {
+            echo $e->getMessage();
+        }
+        $abnJSON = json_encode($preparedObject);
 
-        //dummy content (Google's ABR record)
-        $array_of_returned_stuff=[
-            "Abn" => "33 102 417 032",
-            "AbnStatus" => "Active",
-            "AddressDate" => "2018-11-22",
-            "AddressPostcode" => "2009",
-            "AddressState" => "NSW"
-        ];
-        //end dummy content
-
-        //Sort fields so they are always returned in lex. This matters for generating the hash.
-        ksort($array_of_returned_stuff);
-        $abn_record = json_encode($array_of_returned_stuff );
+    } else {
+         $preparedObject->Message = INVALID_SEARCH;
     }
 }
 
-$hash = crc32($abn_record);
+$hash = crc32($abnJSON);
 
-if ($hash && empty($array_of_returned_stuff['Message'])) {
-    $array_of_returned_stuff['hash'] = "".$hash;
+if ($hash && empty($preparedObject->Message)) {
+    $preparedObject->hash = "".$hash;
 }
 
-echo json_encode($array_of_returned_stuff);
-
+echo json_encode($preparedObject);

@@ -1,5 +1,4 @@
 //custom/modules/Accounts/js/editView.js
-var abnLookupGUID = 'eb7e518b-6a8a-4db5-a4bd-508a169ddc42';
 var $abnInput = $('#abn_c');
 var $hashInput = $('#abn_details_hash_c');
 (function($) {
@@ -23,7 +22,8 @@ var $hashInput = $('#abn_details_hash_c');
         $hashInput.css("color", "#4e4f51");
 
         $button.on('click', function () {
-            abnLookup($messageSpace);
+            abnInitialise($messageSpace);
+            abnLookup();
         });
 
         $abnInput.on('keyup', function(){
@@ -36,7 +36,7 @@ var $hashInput = $('#abn_details_hash_c');
 /*------------------------------------------------------------------
    Class for accessing services using JSON
   ------------------------------------------------------------------*/
-function jsonRequest(url) {
+function JSON_Request(url) {
     //REST request path
     this.url = url;
 
@@ -47,13 +47,13 @@ function jsonRequest(url) {
     this.headLoc = document.getElementsByTagName("head").item(0);
 
     //Generate a unique script tag id
-    this.scriptId = 'sflScriptId' + jsonRequest.Counter ++;
+    this.scriptId = 'sflScriptId' + JSON_Request.Counter ++;
 }
 
 //Static script ID counter
-jsonRequest.Counter = 1;
+JSON_Request.Counter = 1;
 
-jsonRequest.prototype.buildScriptTag = function () {
+JSON_Request.prototype.buildScriptTag = function () {
     this.scriptObject = document.createElement("script");
     this.scriptObject.setAttribute("type", "text/javascript");
     this.scriptObject.setAttribute("src", this.url + this.noCacheIE);
@@ -61,12 +61,12 @@ jsonRequest.prototype.buildScriptTag = function () {
 };
 
 // remove script tag
-jsonRequest.prototype.removeScriptTag = function () {
+JSON_Request.prototype.removeScriptTag = function () {
     this.headLoc.removeChild(this.scriptObject);
 };
 
 // add script tag
-jsonRequest.prototype.addScriptTag = function () {
+JSON_Request.prototype.addScriptTag = function () {
     this.headLoc.appendChild(this.scriptObject);
 };
 /*------------------------------------------------------------------
@@ -95,11 +95,10 @@ function setFieldValue(fieldId, value) {
     Use web service to lookup details of the ABN
   ------------------------------------------------------------------*/
 
-function abnLookup($messageSpace) {
+function abnLookup() {
     var abn = getFieldValue('abn_c');
-    // var guid = abnLookupGUID;
-    // var jasonScript;
-    abnInitialise($messageSpace);
+
+    clearValidationMessages();
     jQuery.ajax(
         {
             url: "index.php?entryPoint=abr",
@@ -118,11 +117,19 @@ function abnLookup($messageSpace) {
                 }
             },
             success: function (data) {
-                console.log(data);
                 abnCallback(data);
             }
         }
     );
+}
+
+function clearValidationMessages()
+{
+    var validationMessages = document.querySelectorAll(".validation-message");
+
+    for (var i = 0; i < validationMessages.length; i++) {
+        validationMessages[i].innerHTML = "";
+    }
 }
 
 /*------------------------------------------------------------------
@@ -132,15 +139,79 @@ function abnCallback (abnData)
 {
     if (typeof abnData.Message === 'undefined' || abnData.Message.length == 0) {
         setFieldValue('abn_details_hash_c', abnData.hash);
+
+        /*
+         * The ABR Data dictionary is  https://abr.business.gov.au/Documentation/DataDictionary == CRUCIAL
+         * @TODO: verify with customer the following mappings from ABN data dictionary into the Accounts bean.
+         *
+         *  abnData.usageStatement
+         *  abnData.dateRegisterLastUpdated
+         *  abnData.dateTimeRetrieved
+         *
+         *   ----------------- C U R R E N T ---------------------------------------------------------------------------
+         *  ABN---------~*~-------------abnData.businessEntity.ABN.identifierValue
+         *                              abnData.businessEntity.ABN.isCurrentIndicator
+         *                              abnData.businessEntity.ABN.replacedFrom
+         * Entity name------~*~---------abnData.mainName.organisationName
+         *                              abnData.mainName.effectiveFrom
+         * ABN Status-------~*~---------abnData.businessEntity.entityStatus.entityStatusCode
+         *                              abnData.businessEntity.entityStatus.effectiveFrom
+         * Entity Type                  abnData.businessEntity.entityType.entityDescription
+         *                              abnData.businessEntity.entityType.entityTypeCode
+         * Trading name*----~*~---------abnData.businessEntity.mainTradingName.organisationName
+         *                              abnData.businessEntity.mainTradingName.effectiveFrom
+         * ASIC number                  abnData.businessEntity.ASICNumber
+         *
+         * *** NOTE *** ---~*---- == Items for which the logic of reading the search response data needs to be further
+         *                           unpacked (server-side) in case there are multiple (historical) values.
+         *
+         *   ----------------- H I S T O R I C A L  also includes ------------------------------------------------------
+         * Entity name and Trading name(s)
+         * Goods & Services Tax (GST)
+         *
+         * @TODO: use Studio to add necessary fields (what is best practice for adding custom fields in SuiteCRM?).
+         * @TODO: possibly use lots of calls to setFieldValue('abn_details_hash_c', abnData.<Attribute>);
+         */
+
+        /*temporary hack - simply dump the contents in human-readable format into the html. */
         document.getElementById('abn-validation-message').innerHTML =
-            "Validated (details in console!).<br>" +
-            "ABR data has been unchanged since " + abnData.AddressDate + "<br>" +
-            "​AbnStatus: "       + abnData.AbnStatus + "<br>" +
-            "AddressDate: "     + abnData.AddressDate + "<br>" +
-            "AddressPostcode: " + abnData.AddressPostcode;
+            "<strong>Validated</strong><br>" +
+            "<u>Usage Statement</u> : "         + abnData.usageStatement          + "<br>" +
+            "<u>dateRegisterLastUpdated</u> : " + abnData.dateRegisterLastUpdated + "<br>" +
+            "<u>dateTimeRetrieved</u> : "       + abnData.dateTimeRetrieved       +
+
+            "<div style='border: solid thin green;'>" +
+            "<u>recordLastUpdatedDate :</u> "   + abnData.businessEntity.recordLastUpdatedDate   + "<br>" +
+            "<u>ABN</u> : "            + abnData.businessEntity.ABN.identifierValue           + " ( isCurrent: "     + abnData.businessEntity.ABN.isCurrentIndicator     + (abnData.businessEntity.ABN.replacedFrom == '0001-01-01' ? "" : " - replaced " + abnData.businessEntity.ABN.replacedFrom         ) + ")" + "<br>" +
+            "<u>Entity name</u> : "    + abnData.businessEntity.mainName.organisationName     + " ( effective from " + abnData.businessEntity.mainName.effectiveFrom + ")"      + "<br>" +
+            "<u>​ABN Status</u> : "     + abnData.businessEntity.entityStatus.entityStatusCode + " ( effective from " + abnData.businessEntity.entityStatus.effectiveFrom  + ")" + "<br>" +
+            "<u>Entity Type</u> : "    + abnData.businessEntity.entityType.entityDescription  + " ( " + abnData.businessEntity.entityType.entityTypeCode + ")"                  + "<br>" +
+            "<u>Trading name</u> : "   + abnData.businessEntity.mainTradingName.organisationName + " ( effective from " + abnData.businessEntity.mainTradingName.effectiveFrom + ")"      + "<br>" +
+            "<u>ASIC number</u>: "     + abnData.businessEntity.ASICNumber   + "<br>" +
+            "<u>​GST dates</u>: "       + " from " + abnData.businessEntity.goodsAndServicesTax.effectiveFrom + ( abnData.businessEntity.goodsAndServicesTax.effectiveTo == '0001-01-01'  ? "" : " to " + abnData.businessEntity.goodsAndServicesTax.effectiveTo) + "<br>" +
+
+                "<div style='border: solid thick pink;'>" +
+                "<u>Historical ABN data</u> : "           + (typeof abnData.businessEntity.historicalABN_data             === 'undefined' || abnData.businessEntity.historicalABN_data.length            == 0 ? " none, only current data exists. ": abnData.businessEntity.historicalABN_data            ) + "<br>" +
+                "<u>Historical ABN names data</u> : "     + (typeof abnData.businessEntity.historicalEntityNamesData      === 'undefined' || abnData.businessEntity.historicalEntityNamesData.length     == 0 ? " none, only current data exists. ": abnData.businessEntity.historicalEntityNamesData     ) + "<br>" +
+                "<u>Historical ​ABN Status data</u> : "    + (typeof abnData.businessEntity.historicalEntityStatusData     === 'undefined' || abnData.businessEntity.historicalEntityStatusData.length    == 0 ? " none, only current data exists. ": abnData.businessEntity.historicalEntityStatusData    ) + "<br>" +
+                "<u>Historical Trading name data</u> : "  + (typeof abnData.businessEntity.historicalMainTradingNameData  === 'undefined' || abnData.businessEntity.historicalMainTradingNameData.length == 0 ? " none, only current data exists. ": abnData.businessEntity.historicalMainTradingNameData ) + "<br>" +
+                "<u>Historical ​GST data</u> : "           + (typeof abnData.businessEntity.historicalGST_data             === 'undefined' || abnData.businessEntity.historicalGST_data.length            == 0 ? " none, only current data exists. ": abnData.businessEntity.historicalGST_data            ) + "<br>" +
+                "</div>" +
+
+            "</div>";
+
     } else {
-        document.getElementById('abn-validation-message').innerHTML = "Not valid, or changed at ABR since last validation. Please try again.";
         setFieldValue('abn_details_hash_c', '');
+        document.getElementById('abn-validation-message').innerHTML = "<strong>Not valid</strong><br>";
+
+        if (typeof abnData.Message === 'undefined') {
+            document.getElementById('abn-validation-message').innerHTML +=
+                "<em>bad string?</em><br>" +
+                "<em>changed at ABR since last validation?</em><br><br>" +
+                "Please try again";
+        } else {
+            document.getElementById('abn-validation-message').innerHTML += abnData.Message;
+        }
     }
 }
 
@@ -151,5 +222,3 @@ function abnInitialise($messageSpace) {
     "use strict";
     $messageSpace.html('Requesting ABN Lookup data ... please wait');
 }
-
-
