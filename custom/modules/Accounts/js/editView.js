@@ -1,7 +1,11 @@
 //custom/modules/Accounts/js/editView.js
+var jQuery;
+var $;
 var $abnInput = $('#abn_c');
 var $hashInput = $('#abn_details_hash_c');
+
 (function($) {
+    "use strict";
     function initialiseValidationButton() {
         var $button = $('<button type="button" disabled="disabled" class="button abn-validation-button" style="float:right; margin-right:10%;">Validation</button>');
         var $messageSpace = $('<div id="abn-validation-message" class = "abn-validation-message"></div>');
@@ -33,47 +37,14 @@ var $hashInput = $('#abn_details_hash_c');
     initialiseValidationButton();
 })(jQuery);
 
-/*------------------------------------------------------------------
-   Class for accessing services using JSON
-  ------------------------------------------------------------------*/
-function JSON_Request(url) {
-    //REST request path
-    this.url = url;
-
-    //Ask IE not to cache requests
-    this.noCacheIE = '&noCacheIE=' + (new Date()).getTime();
-
-    //Locate (in the DOM) where to put the new script tag
-    this.headLoc = document.getElementsByTagName("head").item(0);
-
-    //Generate a unique script tag id
-    this.scriptId = 'sflScriptId' + JSON_Request.Counter ++;
-}
-
-//Static script ID counter
-JSON_Request.Counter = 1;
-
-JSON_Request.prototype.buildScriptTag = function () {
-    this.scriptObject = document.createElement("script");
-    this.scriptObject.setAttribute("type", "text/javascript");
-    this.scriptObject.setAttribute("src", this.url + this.noCacheIE);
-    this.scriptObject.setAttribute("id", this.scriptId);
-};
-
-// remove script tag
-JSON_Request.prototype.removeScriptTag = function () {
-    this.headLoc.removeChild(this.scriptObject);
-};
-
-// add script tag
-JSON_Request.prototype.addScriptTag = function () {
-    this.headLoc.appendChild(this.scriptObject);
-};
-/*------------------------------------------------------------------
-    return value of field
-  ------------------------------------------------------------------*/
-function getFieldValue(fieldId) {
+/**
+ * Return value of field
+ */
+function getFieldValue(fieldId)
+{
+    "use strict";
     var oField = document.getElementById(fieldId);
+
     if (oField) {
         return oField.value;
     }
@@ -81,21 +52,26 @@ function getFieldValue(fieldId) {
         return '';
     }
 }
-/*------------------------------------------------------------------
-    populate field with value
-  ------------------------------------------------------------------*/
-function setFieldValue(fieldId, value) {
+
+/**
+ * populate field with value
+ */
+function setFieldValue(fieldId, value)
+{
+    "use strict";
     var oField = document.getElementById(fieldId);
+
     if (oField) {
         oField.value = value;
     }
 }
 
-/*------------------------------------------------------------------
-    Use web service to lookup details of the ABN
-  ------------------------------------------------------------------*/
-
-function abnLookup() {
+/**
+ * Use web service to lookup details of the ABN
+ */
+function abnLookup()
+{
+    "use strict";
     var abn = getFieldValue('abn_c');
 
     clearValidationMessages();
@@ -105,17 +81,7 @@ function abnLookup() {
             method: "POST",
             dataType: 'json',
             data: {"abnValue": abn},
-            error: function (XHR, AjaxStatus, theMessage) {
-                console.log("ajax error: " + theMessage);
-            },
-            statusCode: {
-                403: function (XHR, AjaxStatus, theMessage) {
-                    console.log("403 (verboten): " + theMessage);
-                },
-                404: function (XHR, AjaxStatus, theMessage) {
-                    console.log("404 (lost!): " + theMessage);
-                }
-            },
+
             success: function (data) {
                 abnCallback(data);
             }
@@ -123,8 +89,12 @@ function abnLookup() {
     );
 }
 
+/**
+ * Clear the validation message before next event.
+ */
 function clearValidationMessages()
 {
+    "use strict";
     var validationMessages = document.querySelectorAll(".validation-message");
 
     for (var i = 0; i < validationMessages.length; i++) {
@@ -132,12 +102,13 @@ function clearValidationMessages()
     }
 }
 
-/*------------------------------------------------------------------
-Call back function
------------------------------------------------------------------- */
+/**
+ * Call back function
+ */
 function abnCallback (abnData)
 {
-    if (typeof abnData.Message === 'undefined' || abnData.Message.length == 0) {
+    "use strict";
+    if (typeof abnData.Message === 'undefined' || abnData.Message.length === 0) {
         setFieldValue('abn_details_hash_c', abnData.hash);
 
         /*
@@ -174,31 +145,113 @@ function abnCallback (abnData)
          */
 
         /*temporary hack - simply dump the contents in human-readable format into the html. */
-        document.getElementById('abn-validation-message').innerHTML =
-            "<strong>Validated</strong><br>" +
-            "<u>Usage Statement</u> : "         + abnData.usageStatement          + "<br>" +
-            "<u>dateRegisterLastUpdated</u> : " + abnData.dateRegisterLastUpdated + "<br>" +
-            "<u>dateTimeRetrieved</u> : "       + abnData.dateTimeRetrieved       +
+        var output;
+        output  ="<strong>Validated</strong><br>";
+        //output +="<u>Usage Statement</u> : "         + abnData.usageStatement          + "<br>";
+        output +="<u>dateRegisterLastUpdated</u> : " + abnData.dateRegisterLastUpdated + "<br>";
+        output +="<u>dateTimeRetrieved</u> : "       + abnData.dateTimeRetrieved;
 
-            "<div style='border: solid thin green;'>" +
-            "<u>recordLastUpdatedDate :</u> "   + abnData.businessEntity.recordLastUpdatedDate   + "<br>" +
-            "<u>ABN</u> : "            + abnData.businessEntity.ABN.identifierValue           + " ( isCurrent: "     + abnData.businessEntity.ABN.isCurrentIndicator     + (abnData.businessEntity.ABN.replacedFrom == '0001-01-01' ? "" : " - replaced " + abnData.businessEntity.ABN.replacedFrom         ) + ")" + "<br>" +
-            "<u>Entity name</u> : "    + abnData.businessEntity.mainName.organisationName     + " ( effective from " + abnData.businessEntity.mainName.effectiveFrom + ")"      + "<br>" +
-            "<u>​ABN Status</u> : "     + abnData.businessEntity.entityStatus.entityStatusCode + " ( effective from " + abnData.businessEntity.entityStatus.effectiveFrom  + ")" + "<br>" +
-            "<u>Entity Type</u> : "    + abnData.businessEntity.entityType.entityDescription  + " ( " + abnData.businessEntity.entityType.entityTypeCode + ")"                  + "<br>" +
-            "<u>Trading name</u> : "   + abnData.businessEntity.mainTradingName.organisationName + " ( effective from " + abnData.businessEntity.mainTradingName.effectiveFrom + ")"      + "<br>" +
-            "<u>ASIC number</u>: "     + abnData.businessEntity.ASICNumber   + "<br>" +
-            "<u>​GST dates</u>: "       + " from " + abnData.businessEntity.goodsAndServicesTax.effectiveFrom + ( abnData.businessEntity.goodsAndServicesTax.effectiveTo == '0001-01-01'  ? "" : " to " + abnData.businessEntity.goodsAndServicesTax.effectiveTo) + "<br>" +
+        output +="<div style='border: solid thin green;'>";
 
-                "<div style='border: solid thick pink;'>" +
-                "<u>Historical ABN data</u> : "           + (typeof abnData.businessEntity.historicalABN_data             === 'undefined' || abnData.businessEntity.historicalABN_data.length            == 0 ? " none, only current data exists. ": abnData.businessEntity.historicalABN_data            ) + "<br>" +
-                "<u>Historical ABN names data</u> : "     + (typeof abnData.businessEntity.historicalEntityNamesData      === 'undefined' || abnData.businessEntity.historicalEntityNamesData.length     == 0 ? " none, only current data exists. ": abnData.businessEntity.historicalEntityNamesData     ) + "<br>" +
-                "<u>Historical ​ABN Status data</u> : "    + (typeof abnData.businessEntity.historicalEntityStatusData     === 'undefined' || abnData.businessEntity.historicalEntityStatusData.length    == 0 ? " none, only current data exists. ": abnData.businessEntity.historicalEntityStatusData    ) + "<br>" +
-                "<u>Historical Trading name data</u> : "  + (typeof abnData.businessEntity.historicalMainTradingNameData  === 'undefined' || abnData.businessEntity.historicalMainTradingNameData.length == 0 ? " none, only current data exists. ": abnData.businessEntity.historicalMainTradingNameData ) + "<br>" +
-                "<u>Historical ​GST data</u> : "           + (typeof abnData.businessEntity.historicalGST_data             === 'undefined' || abnData.businessEntity.historicalGST_data.length            == 0 ? " none, only current data exists. ": abnData.businessEntity.historicalGST_data            ) + "<br>" +
-                "</div>" +
+        output +="<u>recordLastUpdatedDate :</u> ";
+        output +=abnData.businessEntity.recordLastUpdatedDate;
 
-            "</div>";
+        output +="<br>";
+        output +="<u>ABN</u> : ";
+        output +=abnData.businessEntity.ABN.identifierValue;
+        output +=" ( isCurrent: " + abnData.businessEntity.ABN.isCurrentIndicator;
+        if (abnData.businessEntity.ABN.replacedFrom === '0001-01-01') {
+            output +="";
+        } else {
+            output +=" - replaced " + abnData.businessEntity.ABN.replacedFrom;
+        }
+        output += ")";
+
+        output +="<br>";
+        output +="<u>Entity name</u> : ";
+        if (typeof abnData.businessEntity.mainName === 'undefined' ||
+            typeof abnData.businessEntity.mainName.organisationName === 'undefined' ||
+            abnData.businessEntity.mainName.organisationName.length === 0
+        ) {
+            output += "not stated";
+        } else {
+            output += abnData.businessEntity.mainName.organisationName +
+                " ( effective from " + abnData.businessEntity.mainName.effectiveFrom + ")";
+        }
+
+        output +="<br>";
+        output +="<u>​ABN Status</u> : ";
+        if (typeof abnData.businessEntity.entityStatus === 'undefined' ||
+            typeof abnData.businessEntity.entityStatus.entityStatusCode === 'undefined' ||
+            abnData.businessEntity.entityStatus.entityStatusCode.length === 0
+        ) {
+            output += "not stated";
+        } else {
+            output += abnData.businessEntity.entityStatus.entityStatusCode +
+                " ( effective from " + abnData.businessEntity.entityStatus.effectiveFrom + ")";
+        }
+
+        output +="<br>";
+        output +="<u>Entity Type</u> : ";
+        if (typeof abnData.businessEntity.entityType === 'undefined' ||
+            typeof abnData.businessEntity.entityType.entityDescription === 'undefined' ||
+            abnData.businessEntity.entityType.entityDescription.length === 0
+        ) {
+            output += "not stated";
+        } else {
+            output += abnData.businessEntity.entityType.entityDescription + " ( " + abnData.businessEntity.entityType.entityTypeCode + ")";
+        }
+
+        output +="<br>";
+        output +="<u>Trading name</u> : ";
+        if (typeof abnData.businessEntity.mainTradingName === 'undefined' ||
+            typeof abnData.businessEntity.mainTradingName.organisationName === 'undefined' ||
+            abnData.businessEntity.mainTradingName.organisationName.length === 0
+        ) {
+            output += "not stated";
+        } else {
+            output += abnData.businessEntity.mainTradingName.organisationName + " ( effective from " + abnData.businessEntity.mainTradingName.effectiveFrom + ")";
+        }
+
+        output +="<br>";
+        output +="<u>ASIC number</u>: ";
+        if (typeof abnData.businessEntity.ASICNumber === 'undefined' ||
+            abnData.businessEntity.ASICNumber.length === 0
+        ) {
+            output += "not stated";
+        } else {
+            output += abnData.businessEntity.ASICNumber;
+        }
+
+        output +="<br>";
+        output +="<u>​GST dates</u>: ";
+        if (typeof abnData.businessEntity.goodsAndServicesTax === "undefined" ||
+            typeof abnData.businessEntity.goodsAndServicesTax.effectiveFrom === "undefined" ||
+            abnData.businessEntity.goodsAndServicesTax.effectiveFrom.length === 0
+        ) {
+            output += "not stated";
+        } else {
+            output += " from " + abnData.businessEntity.goodsAndServicesTax.effectiveFrom;
+            if (typeof abnData.businessEntity.goodsAndServicesTax.effectiveTo === "undefined" ||
+                abnData.businessEntity.goodsAndServicesTax.effectiveTo.length === 0 ||
+                abnData.businessEntity.goodsAndServicesTax.effectiveTo === '0001-01-01'
+            ) {
+                output += "";
+            } else {
+                output += " to " + abnData.businessEntity.goodsAndServicesTax.effectiveTo;
+            }
+        }
+
+        output +="<div style='border: solid thick pink;'>";
+        output +="<u>Historical ABN data</u> : "           + (typeof abnData.businessEntity.historicalABN_data             === 'undefined' || abnData.businessEntity.historicalABN_data.length            === 0 ? " none, only current data exists. ": abnData.businessEntity.historicalABN_data            ) + "<br>";
+        output +="<u>Historical ABN names data</u> : "     + (typeof abnData.businessEntity.historicalEntityNamesData      === 'undefined' || abnData.businessEntity.historicalEntityNamesData.length     === 0 ? " none, only current data exists. ": abnData.businessEntity.historicalEntityNamesData     ) + "<br>";
+        output +="<u>Historical ​ABN Status data</u> : "    + (typeof abnData.businessEntity.historicalEntityStatusData     === 'undefined' || abnData.businessEntity.historicalEntityStatusData.length    === 0 ? " none, only current data exists. ": abnData.businessEntity.historicalEntityStatusData    ) + "<br>";
+        output +="<u>Historical Trading name data</u> : "  + (typeof abnData.businessEntity.historicalMainTradingNameData  === 'undefined' || abnData.businessEntity.historicalMainTradingNameData.length === 0 ? " none, only current data exists. ": abnData.businessEntity.historicalMainTradingNameData ) + "<br>";
+        output +="<u>Historical ​GST data</u> : "           + (typeof abnData.businessEntity.historicalGST_data             === 'undefined' || abnData.businessEntity.historicalGST_data.length            === 0 ? " none, only current data exists. ": abnData.businessEntity.historicalGST_data            ) + "<br>";
+        output +="</div>";
+
+        output +="</div>";
+        document.getElementById('abn-validation-message').innerHTML = output;
 
     } else {
         setFieldValue('abn_details_hash_c', '');
@@ -215,10 +268,10 @@ function abnCallback (abnData)
     }
 }
 
-/*------------------------------------------------------------------
-Initialise form fields
------------------------------------------------------------------- */
+/**
+ * Initialise form fields
+ */
 function abnInitialise($messageSpace) {
     "use strict";
-    $messageSpace.html('Requesting ABN Lookup data ... please wait');
+    $messageSpace.html('XXRequesting ABN Lookup data ... please wait');
 }
